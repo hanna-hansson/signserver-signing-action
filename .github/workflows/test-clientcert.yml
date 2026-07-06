@@ -54,7 +54,7 @@ jobs:
        curl -v --request POST --header "Content-Type: text/xml;charset=UTF-8" \
         --data @/home/runner/work/signserver-signing-action/signserver-signing-action/testing/addAuthorizedClients.xml \
         https://localhost:443/signserver/AdminWSService/AdminWS?wsdl \
-        --cert-type P12 --cert /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1.p12:foo123 \
+        --cert-type P12 --cert /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12:foo123 \
         --insecure
 
     - name: Reload
@@ -62,7 +62,7 @@ jobs:
        curl -v --request POST --header "Content-Type: text/xml;charset=UTF-8" \
         --data @/home/runner/work/signserver-signing-action/signserver-signing-action/testing/reloadConfiguration.xml \
         https://localhost:443/signserver/AdminWSService/AdminWS?wsdl \
-        --cert-type P12 --cert /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1.p12:foo123 \
+        --cert-type P12 --cert /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12:foo123 \
         --insecure
         
       
@@ -74,7 +74,7 @@ jobs:
         file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/HelloJar.jar
         worker-name: JArchiveSigner
         output-file-name: HelloJar-signed-openssl.jar
-        client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1.p12
+        client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12
         password: foo123
         disable-cert-val: true
         rest: false
@@ -87,6 +87,6 @@ jobs:
         file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/HelloJar.jar
         worker-name: JArchiveSigner
         output-file-name: HelloJar-signed-rest.jar
-        client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1.p12
+        client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12
         password: foo123
         disable-cert-val: true
