@@ -2,6 +2,7 @@ name: test-CMSSigner
 
 on:
  workflow_dispatch:
+ workflow_call:
  push:
    branches: [update-to-support-more-workers]
 
