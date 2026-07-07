@@ -65,34 +65,37 @@ jobs:
       id: sign-file-openssl-clientcert
       uses: ./
       with:
-        endpoint: http://localhost:80/signserver
+        endpoint: https://localhost:443/signserver
         file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/sample.txt
         worker-name: PlainSigner
         output-file-name: sample-signed-openssl-clientcert.pdf
         client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1.p12
         password: foo123
+        disable-cert-val: true
         rest: false
  
     - name: Sign Plain REST with client cert
       id: sign-file-rest-clientcert
       uses: ./
       with:
-        endpoint: http://localhost:80/signserver
+        endpoint: https://localhost:443/signserver
         file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/sample.txt
         worker-name: PlainSigner
         output-file-name: sample-signed-rest-clientcert.pdf
         client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1.p12
         password: foo123
+        disable-cert-val: true
  
     - name: Attempt sign without client cert (expect failure)
       id: sign-no-cert
       continue-on-error: true
       uses: ./
       with:
-        endpoint: http://localhost:80/signserver
+        endpoint: https://localhost:443/signserver
         file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/sample.txt
         worker-name: PlainSigner
         output-file-name: sample-signed-no-cert.pdf
+        disable-cert-val: true
  
     - name: Assert unauthenticated request was rejected
       run: |
