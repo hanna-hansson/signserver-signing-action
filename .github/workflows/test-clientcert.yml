@@ -1,3 +1,4 @@
+ · YML
 name: test-ClientCertAuth
 on:
  workflow_dispatch:
@@ -52,14 +53,19 @@ jobs:
  
     - name: Authorize client cert on PlainSigner
       run: |
-          docker cp /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1.pem signserver:/tmp/dss10_signer1.pem
+          CERT_PEM=$(mktemp)
+          openssl pkcs12 -in /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12 \
+            -clcerts -nokeys -passin pass:foo123 \
+            -out "$CERT_PEM"
+          docker cp "$CERT_PEM" signserver:/tmp/dss10_admin1-cert.pem
           docker exec signserver bin/signserver authorizedclients \
             -worker PlainSigner -add \
             -matchSubjectWithType CERTIFICATE_SERIALNO \
             -matchIssuerWithType ISSUER_DN_BCSTYLE \
             -description "CI client cert auth test" \
-            -cert /tmp/dss10_signer1.pem
+            -cert /tmp/dss10_admin1-cert.pem
           docker exec signserver bin/signserver reload PlainSigner
+          rm -f "$CERT_PEM"
  
     - name: Sign Plain OpenSSL with client cert
       id: sign-file-openssl-clientcert
@@ -69,7 +75,7 @@ jobs:
         file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/sample.txt
         worker-name: PlainSigner
         output-file-name: sample-signed-openssl-clientcert.pdf
-        client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1.p12
+        client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12
         password: foo123
         disable-cert-val: true
         rest: false
@@ -82,7 +88,7 @@ jobs:
         file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/sample.txt
         worker-name: PlainSigner
         output-file-name: sample-signed-rest-clientcert.pdf
-        client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1.p12
+        client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12
         password: foo123
         disable-cert-val: true
  
@@ -95,7 +101,6 @@ jobs:
         file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/sample.txt
         worker-name: PlainSigner
         output-file-name: sample-signed-no-cert.pdf
-        disable-cert-val: true
  
     - name: Assert unauthenticated request was rejected
       run: |
