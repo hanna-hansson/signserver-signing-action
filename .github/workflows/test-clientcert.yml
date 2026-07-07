@@ -1,25 +1,23 @@
-name: test clientcert
-
+name: test-ClientCertAuth
 on:
  workflow_dispatch:
  workflow_call:
  #push:
    #branches: [master]
-
 jobs:
   testing:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v7
-       
+ 
     - name: Start SignServer Container
-      run: sudo docker run -d -it --rm --name signserver -p 80:8080 -p 443:8443 -e ALLOW_ANY=true -e LOG_LEVEL_APP=DEBUG -v /home/runner/work/signserver-signing-action/signserver-signing-action/testing/DSSRootCA10.cacert.pem:/mnt/external/secrets/tls/cas/ManagementCA.crt -h localhost keyfactor/signserver-ce:7.3.2  
-          
+      run: sudo docker run -d -it --rm --name signserver -p 80:8080 -p 443:8443 -e LOG_LEVEL_APP=DEBUG -e ALLOW_ANY=true -v /home/runner/work/signserver-signing-action/signserver-signing-action/testing/DSSRootCA10.cacert.pem:/mnt/external/secrets/tls/cas/ManagementCA.crt -h localhost keyfactor/signserver-ce:7.3.2
+ 
     - name: Wait for Container to deploy
       run: sleep 180s
       shell: bash
-
+ 
     - name: Add CryptoTokenP12
       run: |
           curl --cert-type P12 --cert /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12:foo123 \
@@ -33,61 +31,79 @@ jobs:
                 "NAME": "CryptoTokenP12" }}' \
           -H "Content-Type: application/json" \
           -H "X-Keyfactor-Requested-With: 1" https://localhost:443/signserver/rest/v1/workers \
-          --insecure 
-             
-    - name: Add JArchiveSigner
+          --insecure
+ 
+    - name: Add PlainSigner with CLIENTCERT auth
       run: |
-          curl --cert-type P12 --cert /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12:foo123 \-d '{"properties": {
+          curl --cert-type P12 --cert /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12:foo123 \
+          -d '{"properties": {
                 "DEFAULTKEY": "signer00003",
-                "NAME": "JArchiveSigner",
+                "NAME": "PlainSigner",
+                "ACCEPTED_HASH_DIGEST_ALGORITHMS": "SHA-256,SHA-384,SHA-512",
                 "CRYPTOTOKEN": "CryptoTokenP12",
                 "AUTHTYPE": "CLIENTCERT",
-                "IMPLEMENTATION_CLASS": "org.signserver.module.jarchive.signer.JArchiveSigner",
+                "IMPLEMENTATION_CLASS": "org.signserver.module.cmssigner.PlainSigner",
                 "TYPE": "PROCESSABLE",
                 "DISABLEKEYUSAGECOUNTER": "true" }}' \
           -H "Content-Type: application/json"  \
           -H "X-Keyfactor-Requested-With: 1" \
           https://localhost:443/signserver/rest/v1/workers \
           --insecure
-
-    - name: Add ClientAuth 
+ 
+    - name: Extract client cert for authorization rule
       run: |
-       curl -v --request POST --header "Content-Type: text/xml;charset=UTF-8" \
-        --data @/home/runner/work/signserver-signing-action/signserver-signing-action/testing/addAuthorizedClients.xml \
-        https://localhost:443/signserver/AdminWSService/AdminWS?wsdl \
-        --cert-type P12 --cert /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12:foo123 \
-        --insecure
-
-    - name: Reload
+          openssl pkcs12 -in /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1.p12 \
+            -clcerts -nokeys -passin pass:foo123 \
+            -out /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1-cert.pem
+ 
+    - name: Authorize client cert on PlainSigner
       run: |
-       curl -v --request POST --header "Content-Type: text/xml;charset=UTF-8" \
-        --data @/home/runner/work/signserver-signing-action/signserver-signing-action/testing/reloadConfiguration.xml \
-        https://localhost:443/signserver/AdminWSService/AdminWS?wsdl \
-        --cert-type P12 --cert /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12:foo123 \
-        --insecure
-        
-      
-    - name: Sign Jar OpenSSL
-      id: sign-file-openssl
+          docker cp /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1-cert.pem signserver:/tmp/dss10_signer1-cert.pem
+          docker exec signserver bin/signserver authorizedclients \
+            -worker PlainSigner -add \
+            -matchSubjectWithType CERTIFICATE_SERIALNO \
+            -matchIssuerWithType ISSUER_DN_BCSTYLE \
+            -description "CI client cert auth test" \
+            -cert /tmp/dss10_signer1-cert.pem
+          docker exec signserver bin/signserver reload PlainSigner
+ 
+    - name: Sign Plain OpenSSL with client cert
+      id: sign-file-openssl-clientcert
       uses: ./
       with:
-        endpoint: https://localhost:443/signserver
-        file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/HelloJar.jar
-        worker-name: JArchiveSigner
-        output-file-name: HelloJar-signed-openssl.jar
-        client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12
+        endpoint: http://localhost:80/signserver
+        file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/sample.txt
+        worker-name: PlainSigner
+        output-file-name: sample-signed-openssl-clientcert.pdf
+        client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1.p12
         password: foo123
-        disable-cert-val: true
         rest: false
-        
-    - name: Sign Jar REST
-      id: sign-file-rest
+ 
+    - name: Sign Plain REST with client cert
+      id: sign-file-rest-clientcert
       uses: ./
       with:
-        endpoint: https://localhost:443/signserver
-        file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/HelloJar.jar
-        worker-name: JArchiveSigner
-        output-file-name: HelloJar-signed-rest.jar
-        client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12
+        endpoint: http://localhost:80/signserver
+        file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/sample.txt
+        worker-name: PlainSigner
+        output-file-name: sample-signed-rest-clientcert.pdf
+        client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_signer1.p12
         password: foo123
-        disable-cert-val: true
+ 
+    - name: Attempt sign without client cert (expect failure)
+      id: sign-no-cert
+      continue-on-error: true
+      uses: ./
+      with:
+        endpoint: http://localhost:80/signserver
+        file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/sample.txt
+        worker-name: PlainSigner
+        output-file-name: sample-signed-no-cert.pdf
+ 
+    - name: Assert unauthenticated request was rejected
+      run: |
+          if [ "${{ steps.sign-no-cert.outcome }}" != "failure" ]; then
+            echo "Expected signing without a client cert to fail against a CLIENTCERT-protected worker, but it succeeded."
+            exit 1
+          fi
+          echo "Confirmed: request without client cert was correctly rejected."
