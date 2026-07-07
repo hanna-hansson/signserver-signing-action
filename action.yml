@@ -73,7 +73,8 @@ runs:
             curl --fail -F workerName=${WORKER_NAME} -F file=@${FILE_PATH} --output ${OUTPUT} ${ENDPOINT}/process
           elif [ "$CLIENT_CERT" != "" ]; then
             if [ "$DISABLE_CERT_VAL" == "true" ]; then
-              curl --fail -F workerName=${WORKER_NAME} -F file=@${FILE_PATH} --cert-type P12 --cert ${CLIENT_CERT}:${PASSWORD}  --output ${OUTPUT} ${ENDPOINT}/process --insecure
+              curl --fail-with-body -F workerName=${WORKER_NAME} -F file=@${FILE_PATH} --cert-type P12 --cert ${CLIENT_CERT}:${PASSWORD}  --output ${OUTPUT} ${ENDPOINT}/process --insecure
+              cat ${OUTPUT}   # inspect what SignServer actually said
             elif [ "$DISABLE_CERT_VAL" == "false" ]; then
               curl --fail -F workerName=${WORKER_NAME} -F file=@${FILE_PATH} --cert-type P12 --cert ${CLIENT_CERT}:${PASSWORD}  --output ${OUTPUT} ${ENDPOINT}/process
             fi
