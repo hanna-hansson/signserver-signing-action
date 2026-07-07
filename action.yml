@@ -73,12 +73,12 @@ runs:
             curl --fail -F workerName=${WORKER_NAME} -F file=@${FILE_PATH} --output ${OUTPUT} ${ENDPOINT}/process
           elif [ "$CLIENT_CERT" != "" ]; then
             if [ "$DISABLE_CERT_VAL" == "true" ]; then
-              curl --fail-with-body -F workerName=${WORKER_NAME} -F file=@${FILE_PATH} --cert-type P12 --cert ${CLIENT_CERT}:${PASSWORD}  --output ${OUTPUT} ${ENDPOINT}/process --insecure
+              curl --fail-with-body -F workerName=${WORKER_NAME} -F file=@${FILE_PATH} --cert-type P12 --cert ${CLIENT_CERT}:${PASSWORD}  --output ${OUTPUT} ${ENDPOINT}/process --insecure || CURL_EXIT=$?
               cat ${OUTPUT}
               if [ -n "$CURL_EXIT" ]; then
                 echo "curl failed with exit code $CURL_EXIT"
                 exit $CURL_EXIT
-              fi            
+              fi         
               elif [ "$DISABLE_CERT_VAL" == "false" ]; then
               curl --fail -F workerName=${WORKER_NAME} -F file=@${FILE_PATH} --cert-type P12 --cert ${CLIENT_CERT}:${PASSWORD}  --output ${OUTPUT} ${ENDPOINT}/process
             fi
@@ -88,7 +88,7 @@ runs:
 
     - name: Upload response on failure
       if: failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: signserver-response
         path: ${{ env.OUTPUT }}
