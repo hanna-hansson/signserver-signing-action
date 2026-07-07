@@ -57,6 +57,7 @@ jobs:
             -clcerts -nokeys -passin pass:foo123 \
             -out "$CERT_PEM"
           docker cp "$CERT_PEM" signserver:/tmp/dss10_admin1-cert.pem
+          docker exec -u root signserver chmod 644 /tmp/dss10_admin1-cert.pem
           docker exec signserver bin/signserver authorizedclients \
             -worker PlainSigner -add \
             -matchSubjectWithType CERTIFICATE_SERIALNO \
