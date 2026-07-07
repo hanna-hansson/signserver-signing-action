@@ -65,8 +65,13 @@ jobs:
         https://localhost:443/signserver/AdminWSService/AdminWS?wsdl \
         --cert-type P12 --cert /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12:foo123 \
         --insecure
-        
-      
+
+    - name: Verify workers exist
+      run: |
+        curl --fail -s --cert-type P12 --cert .../dss10_admin1.p12:foo123 \
+          -H "X-Keyfactor-Requested-With: REST" \
+          https://localhost:443/signserver/rest/v1/workers --insecure | tee workers.json
+          
     - name: Sign Jar OpenSSL
       id: sign-file-openssl
       uses: ./
