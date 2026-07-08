@@ -59,7 +59,7 @@ jobs:
           docker cp "$CERT_PEM" signserver:/tmp/dss10_admin1-cert.pem
           docker exec -u root signserver chmod 644 /tmp/dss10_admin1-cert.pem
           docker exec signserver bin/signserver authorizedclients \
-            -worker PlainSigner -add \
+            -worker JArchiveSigner -add \
             -matchSubjectWithType CERTIFICATE_SERIALNO \
             -matchIssuerWithType ISSUER_DN_BCSTYLE \
             -description "CI client cert auth test" \
