@@ -1,0 +1,82 @@
+name: test-CurlFailFlag
+ 
+on:
+  workflow_dispatch:
+  #push:
+    #branches: [master]
+ 
+jobs:
+  testing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+ 
+      - name: Start SignServer Container
+        run: sudo docker run -d -it --rm --name signserver -p 80:8080 -p 443:8443 -e LOG_LEVEL_APP=DEBUG -e ALLOW_ANY=true -v /home/runner/work/signserver-signing-action/signserver-signing-action/testing/ManagementCA.cacert.crt:/mnt/external/secrets/tls/cas/ManagementCA.crt -h localhost keyfactor/signserver-ce:7.3.2
+ 
+      - name: Wait for Container to deploy
+        run: sleep 180s
+        shell: bash
+ 
+      # NOTE: We deliberately do NOT create a CryptoToken or Worker here.
+      # Pointing the action at a worker name that was never registered
+      # makes SignServer return a non-2xx response, which is exactly the
+      # scenario --fail is meant to catch (previously curl would write the
+      # error body to the output file and exit 0).
+ 
+      - name: Attempt Sign against nonexistent worker (REST) - expect failure
+        id: sign-file-rest-fail
+        continue-on-error: true
+        uses: ./
+        with:
+          endpoint: http://localhost:80/signserver
+          file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/sample.txt
+          worker-name: NonExistentWorker
+          output-file-name: sample-signed-rest-fail.txt
+          rest: true
+ 
+      - name: Verify REST step failed as expected
+        run: |
+          if [ "${{ steps.sign-file-rest-fail.outcome }}" == "success" ]; then
+            echo "FAIL: expected the action to fail for a nonexistent worker (REST), but it reported success."
+            exit 1
+          fi
+          echo "PASS: REST step correctly failed (outcome: ${{ steps.sign-file-rest-fail.outcome }})"
+ 
+      - name: Verify no bad output file was written for REST
+        run: |
+          if [ -f "sample-signed-rest-fail.txt" ]; then
+            echo "FAIL: output file was written even though the REST request failed - the error body was likely saved as if it were signed output."
+            cat sample-signed-rest-fail.txt
+            exit 1
+          fi
+          echo "PASS: no output file present for the failed REST request."
+ 
+      - name: Attempt Sign against nonexistent worker (OpenSSL/legacy) - expect failure
+        id: sign-file-openssl-fail
+        continue-on-error: true
+        uses: ./
+        with:
+          endpoint: http://localhost:80/signserver
+          file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/sample.txt
+          worker-name: NonExistentWorker
+          output-file-name: sample-signed-openssl-fail.txt
+          rest: false
+ 
+      - name: Verify OpenSSL/legacy step failed as expected
+        run: |
+          if [ "${{ steps.sign-file-openssl-fail.outcome }}" == "success" ]; then
+            echo "FAIL: expected the action to fail for a nonexistent worker (legacy), but it reported success."
+            exit 1
+          fi
+          echo "PASS: legacy step correctly failed (outcome: ${{ steps.sign-file-openssl-fail.outcome }})"
+ 
+      - name: Verify no bad output file was written for OpenSSL/legacy
+        run: |
+          if [ -f "sample-signed-openssl-fail.txt" ]; then
+            echo "FAIL: output file was written even though the legacy request failed - the error body was likely saved as if it were signed output."
+            cat sample-signed-openssl-fail.txt
+            exit 1
+          fi
+          echo "PASS: no output file present for the failed legacy request."
