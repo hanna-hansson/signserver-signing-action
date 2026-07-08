@@ -14,7 +14,7 @@ jobs:
       uses: actions/checkout@v7
        
     - name: Start SignServer Container
-      run: sudo docker run -d -it --rm --name signserver -p 80:8080 -p 443:8443 -e LOG_LEVEL_APP=DEBUG -v /home/runner/work/signserver-signing-action/signserver-signing-action/testing/DSSRootCA10.cacert.pem:/mnt/external/secrets/tls/cas/ManagementCA.crt -h localhost keyfactor/signserver-ce:7.3.2  
+      run: sudo docker run -d -it --rm --name signserver -p 80:8080 -p 443:8443 -e LOG_LEVEL_APP=DEBUG -e ALLOW_ANY=true -v /home/runner/work/signserver-signing-action/signserver-signing-action/testing/DSSRootCA10.cacert.pem:/mnt/external/secrets/tls/cas/ManagementCA.crt -h localhost keyfactor/signserver-ce:7.3.2  
           
     - name: Wait for Container to deploy
       run: sleep 180s
@@ -49,23 +49,23 @@ jobs:
           -H "X-Keyfactor-Requested-With: 1" \
           https://localhost:443/signserver/rest/v1/workers \
           --insecure
-
-    - name: Add ClientAuth 
+          
+    - name: Authorize client cert on PlainSigner
       run: |
-       curl -v --request POST --header "Content-Type: text/xml;charset=UTF-8" \
-        --data @/home/runner/work/signserver-signing-action/signserver-signing-action/testing/addAuthorizedClients.xml \
-        https://localhost:443/signserver/AdminWSService/AdminWS?wsdl \
-        --cert-type P12 --cert /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12:foo123 \
-        --insecure
-
-    - name: Reload
-      run: |
-       curl -v --request POST --header "Content-Type: text/xml;charset=UTF-8" \
-        --data @/home/runner/work/signserver-signing-action/signserver-signing-action/testing/reloadConfiguration.xml \
-        https://localhost:443/signserver/AdminWSService/AdminWS?wsdl \
-        --cert-type P12 --cert /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12:foo123 \
-        --insecure
-        
+          CERT_PEM=$(mktemp)
+          openssl pkcs12 -in /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12 \
+            -clcerts -nokeys -passin pass:foo123 \
+            -out "$CERT_PEM"
+          docker cp "$CERT_PEM" signserver:/tmp/dss10_admin1-cert.pem
+          docker exec -u root signserver chmod 644 /tmp/dss10_admin1-cert.pem
+          docker exec signserver bin/signserver authorizedclients \
+            -worker PlainSigner -add \
+            -matchSubjectWithType CERTIFICATE_SERIALNO \
+            -matchIssuerWithType ISSUER_DN_BCSTYLE \
+            -description "CI client cert auth test" \
+            -cert /tmp/dss10_admin1-cert.pem
+          docker exec signserver bin/signserver reload PlainSigner
+          rm -f "$CERT_PEM" 
       
     - name: Sign Jar OpenSSL
       id: sign-file-openssl
