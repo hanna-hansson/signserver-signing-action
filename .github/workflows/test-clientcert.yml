@@ -91,3 +91,21 @@ jobs:
         client-cert: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/dss10_admin1.p12
         password: foo123
         disable-cert-val: true
+
+    - name: Attempt sign without client cert (expect failure)
+      id: sign-no-cert
+      continue-on-error: true
+      uses: ./
+      with:
+        endpoint: https://localhost:443/signserver
+        file-path: /home/runner/work/signserver-signing-action/signserver-signing-action/testing/HelloJar.jar
+        worker-name: JArchiveSigner
+        output-file-name: HelloJar-signed-no-cert.jar
+     
+    - name: Assert unauthenticated request was rejected
+      run: |
+          if [ "${{ steps.sign-no-cert.outcome }}" != "failure" ]; then
+            echo "Expected signing without a client cert to fail against a CLIENTCERT-protected worker, but it succeeded."
+            exit 1
+          fi
+          echo "Confirmed: request without client cert was correctly rejected."
