@@ -2,7 +2,7 @@ name: test-all
  
 on:
   push:
-    branches: [add-curl-fail-flag-tests]
+    branches: [main]
 
  
 jobs:
